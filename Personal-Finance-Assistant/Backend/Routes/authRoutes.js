@@ -1,8 +1,8 @@
 import express from 'express';
 import { register, login, getMe } from '../Controllers/authControllers.js';
-import validateUser from '../Middlewares/userValidation.js';
-import sanitizeUser from '../Middlewares/userSanitization.js';
-import protectRoute from '../Middlewares/authMiddleware.js';
+import validateUser from '../middleware/userValidation.js';
+import sanitizeUser from '../middleware/userSanitization.js';
+import protectRoute from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 

@@ -631,8 +631,18 @@ export const previewReceipt = async (req, res, next) => {
             path: req.file.path
         });
 
+        const userId = req.user._id;
         const filePath = req.file.path;
         const fileType = req.file.mimetype.startsWith('image/') ? 'image' : 'pdf';
+
+        // Create extraction log entry
+        const ExtractionLog = (await import('../Models/ExtractionLog.js')).default;
+        const extractionLog = new ExtractionLog({
+            user: userId,
+            fileName: req.file.originalname,
+            fileType: req.file.mimetype,
+            status: 'pending'
+        });
 
         try {
             console.log(`Processing ${fileType} file: ${req.file.originalname}`);
@@ -667,12 +677,23 @@ export const previewReceipt = async (req, res, next) => {
                 console.log('No transactions parsed, using default data');
             }
 
+            // Update extraction log with success
+            extractionLog.status = 'success';
+            extractionLog.extractedTransactions = result.transactions.length;
+            await extractionLog.save();
+
             res.status(200).json({
                 success: true,
                 message: 'Receipt processed successfully',
                 data: responseData
             });
 
+        } catch (processingError) {
+            // Update extraction log with failure
+            extractionLog.status = 'failed';
+            extractionLog.error = processingError.message;
+            await extractionLog.save();
+            throw processingError;
         } finally {
             // Clean up uploaded file
             try {
@@ -795,6 +816,113 @@ export const createFromPreview = async (req, res, next) => {
                 created: createdTransactions,
                 errors: errors
             }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Get receipt processing history
+export const getReceiptHistory = async (req, res, next) => {
+    try {
+        const userId = req.user._id;
+        const { limit = 10, page = 1 } = req.query;
+
+        const ExtractionLog = (await import('../Models/ExtractionLog.js')).default;
+
+        const skip = (page - 1) * limit;
+
+        const receipts = await ExtractionLog.find({ user: userId })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit))
+            .lean();
+
+        const total = await ExtractionLog.countDocuments({ user: userId });
+
+        // Format the data for frontend display
+        const formattedReceipts = receipts.map(receipt => {
+            // Extract business name from filename if possible
+            const fileName = receipt.fileName;
+            let businessName = fileName.replace(/\.(jpg|jpeg|png|pdf)$/i, '');
+
+            // Clean up the filename to make it more readable
+            businessName = businessName.replace(/[_-]/g, ' ');
+            businessName = businessName.replace(/\b\w/g, l => l.toUpperCase());
+
+            // If we can't get a good name from filename, use a default
+            if (businessName.length < 3 || /^\d+$/.test(businessName)) {
+                businessName = 'Receipt';
+            }
+
+            // Calculate confidence based on status and extracted transactions
+            let confidence = '0%';
+            if (receipt.status === 'success' && receipt.extractedTransactions > 0) {
+                confidence = '95%';
+            } else if (receipt.status === 'success') {
+                confidence = '75%';
+            } else if (receipt.status === 'failed') {
+                confidence = '0%';
+            }
+
+            return {
+                id: receipt._id,
+                name: businessName,
+                confidence: `${confidence} confidence`,
+                amount: receipt.extractedTransactions > 0 ? `${receipt.extractedTransactions} transactions` : 'No data',
+                date: new Date(receipt.createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                }),
+                category: 'Receipt Processing',
+                status: receipt.status,
+                extractedTransactions: receipt.extractedTransactions,
+                originalFileName: receipt.fileName,
+                fileType: receipt.fileType,
+                createdAt: receipt.createdAt
+            };
+        });
+
+        res.json({
+            success: true,
+            data: {
+                receipts: formattedReceipts,
+                pagination: {
+                    total,
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    pages: Math.ceil(total / limit)
+                }
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Delete receipt log
+export const deleteReceiptLog = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user._id;
+
+        const ExtractionLog = (await import('../Models/ExtractionLog.js')).default;
+
+        // Find and delete the receipt log, ensuring it belongs to the current user
+        const deletedLog = await ExtractionLog.findOneAndDelete({
+            _id: id,
+            user: userId
+        });
+
+        if (!deletedLog) {
+            res.status(404);
+            throw new Error('Receipt log not found');
+        }
+
+        res.json({
+            success: true,
+            message: 'Receipt log deleted successfully'
         });
     } catch (error) {
         next(error);

@@ -34,8 +34,8 @@ export const uploadFile = async (req, res, next) => {
                     log.status = 'failed';
                     log.error = 'No table data found in PDF';
                     await log.save();
-                    return res.status(400).json({ 
-                        error: 'Could not extract table data from PDF. Please try uploading an image of the table instead, or ensure your PDF contains clear tabular data.' 
+                    return res.status(400).json({
+                        error: 'Could not extract table data from PDF. Please try uploading an image of the table instead, or ensure your PDF contains clear tabular data.'
                     });
                 }
             } catch (e) {
@@ -44,8 +44,8 @@ export const uploadFile = async (req, res, next) => {
                 log.status = 'failed';
                 log.error = e.message;
                 await log.save();
-                return res.status(400).json({ 
-                    error: 'PDF processing failed. Please try uploading an image (JPG/PNG) of your transaction table instead.' 
+                return res.status(400).json({
+                    error: 'PDF processing failed. Please try uploading an image (JPG/PNG) of your transaction table instead.'
                 });
             }
         } else {

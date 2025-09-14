@@ -6,7 +6,7 @@ import {
     getMonthlyTrends,
     getSummaryStats
 } from '../Controllers/analyticsControllers.js';
-import protectRoute from '../Middlewares/authMiddleware.js';
+import protectRoute from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 

@@ -8,13 +8,13 @@ import {
     getCategories,
     bulkCreateTransactions
 } from '../Controllers/transactionControllers.js';
-import protectRoute from '../Middlewares/authMiddleware.js';
+import protectRoute from '../middleware/authMiddleware.js';
 import {
     validateTransaction,
     validateTransactionUpdate,
     validateBulkTransactions,
     validateTransactionQuery
-} from '../Middlewares/transactionValidation.js';
+} from '../middleware/transactionValidation.js';
 
 const router = express.Router();
 

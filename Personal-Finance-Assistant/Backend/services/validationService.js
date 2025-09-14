@@ -4,7 +4,7 @@ function validateTransaction(tx) {
     if (!tx.date || !tx.description) return false;
     if (isNaN(tx.amount) || tx.amount === 0) return false;
     if (!tx.type || !['Income', 'Expense'].includes(tx.type)) return false;
-    
+
     return true;
 }
 
